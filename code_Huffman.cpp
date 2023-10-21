@@ -1,7 +1,11 @@
 ﻿// code_Haphman.cpp : Этот файл содержит функцию "main". Здесь начинается и заканчивается выполнение программы.
+
+
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <string>
+
 struct Bool_vector {
     int value = 0; int size = 0;
 };
@@ -39,28 +43,37 @@ void get_code(std::vector<Bool_vector>& code, int local_len) {
     code[j + 1].size = s + 1;
     return;
 }
+
 int main()
 {
-    std::string text;
-    std::getline(std::cin, text);
-    std::vector<int> encrypting_table(256, 0);
-    for (char c : text) {
-        encrypting_table[c] += 1;
+    std::string file_link;
+    std::cout << "Please enter the way to file: ";
+    std::getline(std::cin, file_link);
+
+    std::vector<Bool_vector> encrypting_table(256);
+    std::ifstream fin(file_link);       // поток для чтения
+    char c;
+    while (fin >> c) {
+        encrypting_table[c].value += 1;
     }
+    fin.close();
+
+
     std::vector<int> probability;
     std::vector<char> signs;
+
     for (int i = 0; i < (int)encrypting_table.size(); ++i) {
         std::cout << encrypting_table[i] << ' ';
-        if (encrypting_table[i]) {
-            probability.push_back(encrypting_table[i]);
-            signs.push_back(i);
+        if (encrypting_table[i].value) {
+            probability.push_back(0);
+            signs.push_back(0);
             int j = (int)probability.size() - 1; // pryamaya vstvka
-            while (j > 0 && encrypting_table[i] > probability[j - 1]) {
+            while (j > 0 && encrypting_table[i].value > probability[j - 1]) {
                 probability[j] = probability[j - 1];
                 signs[j] = signs[j - 1];
                 --j;
             }
-            probability[j] = encrypting_table[i];
+            probability[j] = encrypting_table[i].value;
             signs[j] = i;
         }
     }
@@ -72,15 +85,23 @@ int main()
 
     get_code(code, (int)code.size());
     std::cout << '\n';
+
     for (int i = 0; i < (int)code.size(); ++i) {
-        //вставить заполнение кодами encrypting_table(для удобства шифрования)
+        encrypting_table[signs[i]] = code[i]; // заполнение кодами encrypting_table(для удобства шифрования)
         std::cout << '\n' << code[i] << '\t' << signs[i];
     }
-    /*for(int i=0; i < (int)encrypting_table.size(); ++i){
-        std::cout << encrypting_table[i] << ' ';
-    }*/
-    std::cout << '\n' << text;
+
+    std::string encrypted_file_link = file_link;
+    encrypted_file_link.insert((int)encrypted_file_link.size() - 4, "_encrypted");
+    std::ofstream fout(encrypted_file_link); // создаём объект класса ofstream для записи и связываем его с файлом cppstudio.txt   
+    fin.open(file_link);       // поток для чтения
+    while (fin >> c) {
+        fout << encrypting_table[c]; // запись в файл
+    }
+    fin.close();
+    fout.close(); // закрываем файл
     return 0;
 }
+
 // Запуск программы: CTRL+F5 или меню "Отладка" > "Запуск без отладки"
 // Отладка программы: F5 или меню "Отладка" > "Запустить отладку"
