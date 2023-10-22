@@ -47,6 +47,37 @@ void get_code(std::vector<Bool_vector>& code, int local_len) { // рекурси
     return;
 }
 
+bool check_fequal(std::string a, std::string b) { // проверка на совпадение файлов
+    std::ifstream fin_a(a);       // открываем файл на чтение
+    std::ifstream fin_b(b);       // открываем файл на чтение
+    char c_a, c_b;
+    while (fin_a.get(c_a)) {
+        if (fin_b.get(c_b)) {
+            if (c_a != c_b) {
+                fin_a.close();
+                fin_b.close();
+                std::cout << "Файлы не одинаковые";
+                return false;
+            }
+        }
+        else {
+            fin_a.close();
+            fin_b.close();
+            std::cout << "Файлы не одинаковые";
+            return false;
+        }
+    }
+    if (fin_b.get(c_b)) {
+        fin_a.close();
+        fin_b.close();
+        std::cout << "Файлы не одинаковые";
+        return false;
+    }
+    fin_a.close();
+    fin_b.close();
+    std::cout << "Файлы одинаковые";
+    return true;
+}
 
 int main()
 {
@@ -57,7 +88,7 @@ int main()
     std::getline(std::cin, file_link);
 
     std::vector<Bool_vector> encrypting_table(256); // изначально используется для подсчета встреченых символов
-    std::ifstream fin(file_link);       // открываем файл, считаем встреченые символы, закрываем
+    std::ifstream fin(file_link);       // открываем файл на чтение, считаем встреченые символы, закрываем
     char c;
     while (fin.get(c)) {
         encrypting_table[(byte)c].value += 1;
@@ -147,6 +178,10 @@ int main()
         }
         fin.close();
         fout.close(); // закрываем файлы
+
+        std::cout << "\nЕсли вы хотите сравнить расшифрованный файл с исхдным введите 1 иначе 0: ";
+        std::cin >> flag;
+        if (flag) check_fequal(file_link, decrypted_file_link);
     }
     return 0;
 }
