@@ -60,7 +60,7 @@ int main()
     std::ifstream fin(file_link);       // поток для чтения
     char c;
     while (fin.get(c)) {
-        encrypting_table[c].value += 1;
+        encrypting_table[(byte)c].value += 1;
     }
     fin.close();
 
@@ -93,7 +93,7 @@ int main()
     std::cout << '\n';
 
     for (int i = 0; i < (int)code.size(); ++i) {
-        encrypting_table[signs[i]] = code[i]; // заполнение кодами encrypting_table(для удобства шифрования)
+        encrypting_table[(byte)signs[i]] = code[i]; // заполнение кодами encrypting_table(для удобства шифрования)
         std::cout << '\n' << code[i] << '\t' << signs[i]; //
     }
     std::cout << std::endl; //
@@ -103,7 +103,7 @@ int main()
     std::ofstream fout(encrypted_file_link); // создаём объект класса ofstream для записи и связываем его с файлом    
     fin.open(file_link);       // поток для чтения
     while (fin.get(c)) {
-        fout << encrypting_table[c]; // запись в файл
+        fout << encrypting_table[(byte)c]; // запись в файл
     }
     fin.close();
     fout.close(); // закрываем файл
