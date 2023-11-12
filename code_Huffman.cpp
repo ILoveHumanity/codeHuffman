@@ -128,10 +128,25 @@ int main()
 
     std::string encrypted_file_link = file_link; // создаем путь к файлу с зашифрованным текстом
     encrypted_file_link.insert((int)encrypted_file_link.size() - 4, "_encrypted");
-    std::ofstream fout(encrypted_file_link); // открываем файл с зашифрованным текстом на запись
+    encrypted_file_link.replace((int)encrypted_file_link.size() - 3, (int)encrypted_file_link.size(), "bin");
+    std::ofstream fout(encrypted_file_link, std::ios_base::binary); // открываем файл с зашифрованным текстом на запись
     fin.open(file_link);       // открываем файл с открытым текстом на чтение
+    char byte_c = 0;
+    int byte_size = 0;
     while (fin.get(c)) {
-        fout << encrypting_table[(byte)c]; // запись в файл шифрованный текст
+        for (int j = encrypting_table[(byte)c].size; j > 0; j--) { // выводим коды побайтово 
+            byte_c = byte_c << 1 | (encrypting_table[(byte)c].value >> (j - 1) & 1);
+            byte_size++;
+            if (byte_size == 8) {
+                fout.write((char*)&byte_c, 1);
+                byte_c = 0;
+                byte_size = 0;
+            }
+        }
+    }
+    if (byte_size) { // обработка последнего кода
+        byte_c = byte_c << (8 - byte_size);
+        fout.write((char*)&byte_c, 1);
     }
     fin.close();
     fout.close(); // закрываем файлы
@@ -159,13 +174,29 @@ int main()
         std::string decrypted_file_link = file_link; // создаем путь к файлу с расшифрованным текстом
         decrypted_file_link.insert((int)decrypted_file_link.size() - 4, "_decrypted");
         fout.open(decrypted_file_link); // открываем файл с расшифрованным текстом на запись  
-        fin.open(encrypted_file_link); // открываем файл с зашифрованным текстом на чтение
+        fin.open(encrypted_file_link, std::ios_base::binary); // открываем файл с зашифрованным текстом на чтение
         Bool_vector buf = { 0,0 };
         shift = 0;
-        while (fin.get(c)) {
-            buf.value = buf.value << 1 | ((long long)c - '0'); // после каждого считаного символа обновляем значение текушего кода
+
+        fin.read((char*)&c, 1); // считываем доп байт для обработки последнего байта
+        while (fin.read((char*)&byte_c, 1)) { // все кроме последнего байта
+            for (int j = 8; j > 0; j--) { // по битам считанного байта
+                buf.value = buf.value << 1 | (c >> (j-1) & 1); // после каждого считаного бита обновляем значение текушего кода
+                buf.size++;
+                if (buf.size > min_cs) { shift += (long long)1 << (buf.size - 1); } // и вычисляем сдвиг для текущей длинны
+                if (buf.size >= min_cs && decrypting_table[shift + buf.value] != -1000) { // если код допустимой длинны и для него есть символ
+                    fout << (byte)decrypting_table[shift + buf.value]; // записываем его в файл
+                    buf.value = 0; // и сбрасываем значение текущего кода и сдвига для него
+                    buf.size = 0;
+                    shift = 0;
+                }
+            }
+            c = byte_c;
+        }
+        for (int j = 8; j > 8 - byte_size; j--) { // в последнем байте обрабатыаем толко значащие биты
+            buf.value = buf.value << 1 | (c >> (j - 1) & 1); // после каждого считаного символа обновляем значение текушего кода
             buf.size++;
-            if (buf.size > min_cs) { shift += (long long)1 << (buf.size-1); } // и вычисляем сдвиг для текущей длинны
+            if (buf.size > min_cs) { shift += (long long)1 << (buf.size - 1); } // и вычисляем сдвиг для текущей длинны
             if (buf.size >= min_cs && decrypting_table[shift + buf.value] != -1000) { // если код допустимой длинны и для него есть символ
                 fout << (byte)decrypting_table[shift + buf.value]; // записываем его в файл
                 buf.value = 0; // и сбрасываем значение текущего кода и сдвига для него
