@@ -5,11 +5,11 @@
 #include <string>
 
 struct Bool_vector { // булев вектор для кодов
-    long long value = 0; int size = 0;
+    unsigned int value = 0; char size = 0;
 };
 std::ostream& operator << (std::ostream& os, const Bool_vector& a) { // перегрузка оператора вывода для него
     for (int i = a.size - 1; i >= 0; --i) {
-        if (a.value & ((long long)1 << i)) { os << '1'; }
+        if (a.value & (1 << i)) { os << '1'; }
         else { os << '0'; }
     }
     return os;
@@ -23,7 +23,7 @@ void get_code(std::vector<Bool_vector>& code, int local_len) { // рекурси
         }
         return;
     }
-    long long t = code[local_len - 1].value + code[local_len - 2].value; // сумма двух последних ячеек
+    unsigned int t = code[local_len - 1].value + code[local_len - 2].value; // сумма двух последних ячеек
     int j = local_len - 2, s;
     while (j > 0 && t >= code[j - 1].value) { // прямой вставкой вставляем сумму на свое место с сохранением упорядоченности; >= для красивого результата)
         code[j] = code[j - 1];
@@ -92,7 +92,7 @@ int main()
     }
     fin.close();
 
-    std::vector<long long> probability; // массивы под количество встреченых символов и их значение (содержат только встереченные, порядок элементов совпадает, отсортированы по убыванию количества встреченых раз) 
+    std::vector<unsigned int> probability; // массивы под количество встреченых символов и их значение (содержат только встереченные, порядок элементов совпадает, отсортированы по убыванию количества встреченых раз) 
     std::vector<char> signs; 
 
     for (int i = 0; i < (int)encrypting_table.size(); ++i) { // цикл по всем возможным символам
@@ -132,8 +132,16 @@ int main()
     std::ofstream fout(encrypted_file_link, std::ios_base::binary); // открываем файл с зашифрованным текстом на запись
     fin.open(file_link);       // открываем файл с открытым текстом на чтение
     char byte_c = 0;
-    int byte_size = 0;
-    while (fin.get(c)) {
+    int byte_size = 0, size_code = code.size();
+    // Записываем таблицу со значениями и кодми в файл
+    fout.write((char*)&size_code, sizeof(int));
+    for (int i = 0; i < size_code; i++) {
+        fout.write((char*)&(code[i].value), sizeof(unsigned int));
+        fout.write((char*)&(code[i].size), sizeof(char));
+        fout.write((char*)&(signs[i]), sizeof(char));
+    }
+    // Записываем текст в файл
+    while (fin.get(c)) { 
         for (int j = encrypting_table[(byte)c].size; j > 0; j--) { // выводим коды побайтово 
             byte_c = byte_c << 1 | (encrypting_table[(byte)c].value >> (j - 1) & 1);
             byte_size++;
@@ -148,6 +156,7 @@ int main()
         byte_c = byte_c << (8 - byte_size);
         fout.write((char*)&byte_c, 1);
     }
+    fout.write((char*)&byte_size, 1); // число полезных бит
     fin.close();
     fout.close(); // закрываем файлы
 
@@ -155,35 +164,44 @@ int main()
     std::cout << "\nЕсли вы хотите расшифровать полученый файл введите 1 иначе 0: ";
     std::cin >> flag;
     if (flag) {
-
+        fin.open(encrypted_file_link, std::ios_base::binary); // открываем файл с зашифрованным текстом на чтение
+        int size_dcode;
+        fin.read((char*)&size_dcode, sizeof(int));
+        std::vector<Bool_vector> dcode(size_dcode);
+        std::vector<char> dsigns(size_dcode);
+        for (int i = 0; i < size_dcode; i++) {
+            fin.read((char*)&dcode[i].value, sizeof(unsigned int));
+            fin.read((char*)&dcode[i].size, sizeof(char));
+            fin.read((char*)&dsigns[i], sizeof(char));
+        }
         long long sodt = 0, shift;
-        int min_cs = code[0].size, max_cs = code[(int)code.size() - 1].size;
-        for (int i = min_cs; i <= max_cs; ++i) { sodt += (long long)1 << i; } // считаем минимально необходимый размер массива под decrypting_table 
+        int min_cs = dcode[0].size, max_cs = dcode[size_dcode - 1].size;
+        for (int i = min_cs; i <= max_cs; ++i) { sodt += 1 << i; } // считаем минимально необходимый размер массива под decrypting_table 
         //(коды минимальной длинны(min_cs) находятся c 0 по 2^min_cs - 1 ячйку, коды длины i = min_cs + 1 с 2^min_cs по 2^min_cs + 2^i - 1 и т.д.)
         //т.е. для получения значения по коду длины i и значения j, нужно посчитать сдвиг до области в массиве где находятся коды длины i, и взять j-ую ячейку 
 
         //std::cout << sodt; // тестовый вывод
         
         std::vector<int> decrypting_table(sodt, -1000);
-        for (long long i = 0, j; i < (int)code.size(); ++i) { // заполняем его
-            j = code[i].value;
-            for (shift = min_cs; shift < code[i].size; ++shift) { j += (long long)1 << shift; } // вычисление сдвига
-            decrypting_table[j] = signs[i]; 
+        for (long long i = 0, j; i < size_dcode; ++i) { // заполняем его
+            j = dcode[i].value;
+            for (shift = min_cs; shift < dcode[i].size; ++shift) { j += 1 << shift; } // вычисление сдвига
+            decrypting_table[j] = dsigns[i]; 
         }
 
         std::string decrypted_file_link = file_link; // создаем путь к файлу с расшифрованным текстом
         decrypted_file_link.insert((int)decrypted_file_link.size() - 4, "_decrypted");
         fout.open(decrypted_file_link); // открываем файл с расшифрованным текстом на запись  
-        fin.open(encrypted_file_link, std::ios_base::binary); // открываем файл с зашифрованным текстом на чтение
         Bool_vector buf = { 0,0 };
         shift = 0;
-
-        fin.read((char*)&c, 1); // считываем доп байт для обработки последнего байта
-        while (fin.read((char*)&byte_c, 1)) { // все кроме последнего байта
+        char c_1, c_2, c_3;
+        fin.read((char*)&c_1, 1); // считываем два доп байта для обработки предпоследнего байта, т.к. в последнем количество полезных бит
+        fin.read((char*)&c_2, 1); 
+        while (fin.read((char*)&c_3, 1)) { // все последнего байта текста
             for (int j = 8; j > 0; j--) { // по битам считанного байта
-                buf.value = buf.value << 1 | (c >> (j-1) & 1); // после каждого считаного бита обновляем значение текушего кода
+                buf.value = buf.value << 1 | (c_1 >> (j-1) & 1); // после каждого считаного бита обновляем значение текушего кода
                 buf.size++;
-                if (buf.size > min_cs) { shift += (long long)1 << (buf.size - 1); } // и вычисляем сдвиг для текущей длинны
+                if (buf.size > min_cs) { shift += 1 << (buf.size - 1); } // и вычисляем сдвиг для текущей длинны
                 if (buf.size >= min_cs && decrypting_table[shift + buf.value] != -1000) { // если код допустимой длинны и для него есть символ
                     fout << (byte)decrypting_table[shift + buf.value]; // записываем его в файл
                     buf.value = 0; // и сбрасываем значение текущего кода и сдвига для него
@@ -191,12 +209,13 @@ int main()
                     shift = 0;
                 }
             }
-            c = byte_c;
+            c_1 = c_2;
+            c_2 = c_3;
         }
-        for (int j = 8; j > 8 - byte_size; j--) { // в последнем байте обрабатыаем толко значащие биты
-            buf.value = buf.value << 1 | (c >> (j - 1) & 1); // после каждого считаного символа обновляем значение текушего кода
+        for (int j = 8; j > 8 - c_2; j--) { // в последнем байте текста обрабатыаем толко значащие биты
+            buf.value = buf.value << 1 | (c_1 >> (j - 1) & 1); // после каждого считаного символа обновляем значение текушего кода
             buf.size++;
-            if (buf.size > min_cs) { shift += (long long)1 << (buf.size - 1); } // и вычисляем сдвиг для текущей длинны
+            if (buf.size > min_cs) { shift += 1 << (buf.size - 1); } // и вычисляем сдвиг для текущей длинны
             if (buf.size >= min_cs && decrypting_table[shift + buf.value] != -1000) { // если код допустимой длинны и для него есть символ
                 fout << (byte)decrypting_table[shift + buf.value]; // записываем его в файл
                 buf.value = 0; // и сбрасываем значение текущего кода и сдвига для него
