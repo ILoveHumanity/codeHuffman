@@ -155,8 +155,12 @@ int main()
     if (byte_size) { // обработка последнего кода
         byte_c = byte_c << (8 - byte_size);
         fout.write((char*)&byte_c, 1);
+        fout.write((char*)&byte_size, 1); // число полезных бит
     }
-    fout.write((char*)&byte_size, 1); // число полезных бит
+    else {
+        byte_size = 8;
+        fout.write((char*)&byte_size, 1); // число полезных бит
+    }
     fin.close();
     fout.close(); // закрываем файлы
 
