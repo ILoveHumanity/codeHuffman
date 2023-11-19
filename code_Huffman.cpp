@@ -80,95 +80,100 @@ int main()
 {
     SetConsoleCP(1251); // устанавливаем кодировку для ввода\вывода на консоль
     SetConsoleOutputCP(1251);
-    std::string file_link; 
-    std::cout << "Пожалуйста введите путь до файла: ";
-    std::getline(std::cin, file_link);
-
-    std::vector<Bool_vector> encrypting_table(256); // таблица под значения кодов для символов, изначально используется для подсчета встреченых символов для экономии памяти
-    std::ifstream fin(file_link);       // открываем файл на чтение, считаем встреченые символы, закрываем
-    char c;
-    while (fin.get(c)) {
-        encrypting_table[(byte)c].value += 1;
-    }
-    fin.close();
-
-    std::vector<unsigned int> probability; // массивы под количество встреченых символов и их значение (содержат только встереченные, порядок элементов совпадает, отсортированы по убыванию количества встреченых раз) 
-    std::vector<char> signs; 
-
-    for (int i = 0; i < (int)encrypting_table.size(); ++i) { // цикл по всем возможным символам
-        if (encrypting_table[i].value) { // если символ встречался в тексте
-            probability.push_back(0); // добовляем под него место в массивах
-            signs.push_back(0);
-            int j = (int)probability.size() - 1; // вставляем его на свое место с сохранением убывания вероятности, и соответствия между двумя массивами  
-            while (j > 0 && encrypting_table[i].value > probability[j - 1]) {
-                probability[j] = probability[j - 1];
-                signs[j] = signs[j - 1];
-                --j;
-            }
-            probability[j] = encrypting_table[i].value;
-            signs[j] = i;
-        }
-    }
-
-    std::vector<Bool_vector> code((int)probability.size()); // массив под получение кодов символов, заполняется вероятностью их встречи в порядке убывания
-
-    for (int i = 0; i < (int)probability.size(); ++i) {
-        //std::cout << '\n' << probability[i] << '\t' << signs[i]; // тестовый вывод
-        code[i].value = probability[i];
-    }
-
-    get_code(code, (int)code.size()); // получаем коды для символов
-    //std::cout << '\n';
-
-    for (int i = 0; i < (int)code.size(); ++i) {
-        encrypting_table[(byte)signs[i]] = code[i]; // заполнение кодами encrypting_table(для удобства шифрования)
-        //std::cout << '\n' << code[i] << '\t' << signs[i]; // тестовый вывод
-    }
-    //std::cout << '\n';
-
-    std::string encrypted_file_link = file_link; // создаем путь к файлу с зашифрованным текстом
-    encrypted_file_link.insert((int)encrypted_file_link.size() - 4, "_encrypted");
-    encrypted_file_link.replace((int)encrypted_file_link.size() - 3, (int)encrypted_file_link.size(), "bin");
-    std::ofstream fout(encrypted_file_link, std::ios_base::binary); // открываем файл с зашифрованным текстом на запись
-    fin.open(file_link);       // открываем файл с открытым текстом на чтение
-    char byte_c = 0;
-    int byte_size = 0, size_code = code.size();
-    // Записываем таблицу со значениями и кодми в файл
-    fout.write((char*)&size_code, sizeof(int));
-    for (int i = 0; i < size_code; i++) {
-        fout.write((char*)&(code[i].value), sizeof(unsigned int));
-        fout.write((char*)&(code[i].size), sizeof(char));
-        fout.write((char*)&(signs[i]), sizeof(char));
-    }
-    // Записываем текст в файл
-    while (fin.get(c)) { 
-        for (int j = encrypting_table[(byte)c].size; j > 0; j--) { // выводим коды побайтово 
-            byte_c = byte_c << 1 | (encrypting_table[(byte)c].value >> (j - 1) & 1);
-            byte_size++;
-            if (byte_size == 8) {
-                fout.write((char*)&byte_c, 1);
-                byte_c = 0;
-                byte_size = 0;
-            }
-        }
-    }
-    if (byte_size) { // обработка последнего кода
-        byte_c = byte_c << (8 - byte_size);
-        fout.write((char*)&byte_c, 1);
-        fout.write((char*)&byte_size, 1); // число полезных бит
-    }
-    else {
-        byte_size = 8;
-        fout.write((char*)&byte_size, 1); // число полезных бит
-    }
-    fin.close();
-    fout.close(); // закрываем файлы
-
     int flag;
-    std::cout << "\nЕсли вы хотите расшифровать полученый файл введите 1 иначе 0: ";
+    std::cout << "Если вы хотите зашифровать файл введите 1 если расшифровать 0: ";
     std::cin >> flag;
     if (flag) {
-        fin.open(encrypted_file_link, std::ios_base::binary); // открываем файл с зашифрованным текстом на чтение
+        std::string file_link; 
+        std::getline(std::cin, file_link); // костыль для отбрасывания лишнего энтера, cin его не видит, а getline видит) 
+        std::cout << "Пожалуйста введите путь до файла: ";
+        std::getline(std::cin, file_link);
+        std::vector<Bool_vector> encrypting_table(256); // таблица под значения кодов для символов, изначально используется для подсчета встреченых символов для экономии памяти
+        std::ifstream fin(file_link);       // открываем файл на чтение, считаем встреченые символы, закрываем
+        char c;
+        while (fin.get(c)) {
+            encrypting_table[(byte)c].value += 1;
+        }
+        fin.close();
+
+        std::vector<unsigned int> probability; // массивы под количество встреченых символов и их значение (содержат только встереченные, порядок элементов совпадает, отсортированы по убыванию количества встреченых раз) 
+        std::vector<char> signs;
+
+        for (int i = 0; i < (int)encrypting_table.size(); ++i) { // цикл по всем возможным символам
+            if (encrypting_table[i].value) { // если символ встречался в тексте
+                probability.push_back(0); // добовляем под него место в массивах
+                signs.push_back(0);
+                int j = (int)probability.size() - 1; // вставляем его на свое место с сохранением убывания вероятности, и соответствия между двумя массивами  
+                while (j > 0 && encrypting_table[i].value > probability[j - 1]) {
+                    probability[j] = probability[j - 1];
+                    signs[j] = signs[j - 1];
+                    --j;
+                }
+                probability[j] = encrypting_table[i].value;
+                signs[j] = i;
+            }
+        }
+
+        std::vector<Bool_vector> code((int)probability.size()); // массив под получение кодов символов, заполняется вероятностью их встречи в порядке убывания
+
+        for (int i = 0; i < (int)probability.size(); ++i) {
+            //std::cout << '\n' << probability[i] << '\t' << signs[i]; // тестовый вывод
+            code[i].value = probability[i];
+        }
+
+        get_code(code, (int)code.size()); // получаем коды для символов
+        //std::cout << '\n';
+
+        for (int i = 0; i < (int)code.size(); ++i) {
+            encrypting_table[(byte)signs[i]] = code[i]; // заполнение кодами encrypting_table(для удобства шифрования)
+            //std::cout << '\n' << code[i] << '\t' << signs[i]; // тестовый вывод
+        }
+        //std::cout << '\n';
+
+        std::string encrypted_file_link = file_link; // создаем путь к файлу с зашифрованным текстом
+        encrypted_file_link.insert((int)encrypted_file_link.size() - 4, "_encrypted");
+        encrypted_file_link.replace((int)encrypted_file_link.size() - 3, (int)encrypted_file_link.size(), "bin");
+        std::ofstream fout(encrypted_file_link, std::ios_base::binary); // открываем файл с зашифрованным текстом на запись
+        fin.open(file_link);       // открываем файл с открытым текстом на чтение
+        char byte_c = 0;
+        int byte_size = 0, size_code = code.size();
+        // Записываем таблицу со значениями и кодми в файл
+        fout.write((char*)&size_code, sizeof(int));
+        for (int i = 0; i < size_code; i++) {
+            fout.write((char*)&(code[i].value), sizeof(unsigned int));
+            fout.write((char*)&(code[i].size), sizeof(char));
+            fout.write((char*)&(signs[i]), sizeof(char));
+        }
+        // Записываем текст в файл
+        while (fin.get(c)) {
+            for (int j = encrypting_table[(byte)c].size; j > 0; j--) { // выводим коды побайтово 
+                byte_c = byte_c << 1 | (encrypting_table[(byte)c].value >> (j - 1) & 1);
+                byte_size++;
+                if (byte_size == 8) {
+                    fout.write((char*)&byte_c, 1);
+                    byte_c = 0;
+                    byte_size = 0;
+                }
+            }
+        }
+        if (byte_size) { // обработка последнего кода
+            byte_c = byte_c << (8 - byte_size);
+            fout.write((char*)&byte_c, 1);
+            fout.write((char*)&byte_size, 1); // число полезных бит
+        }
+        else {
+            byte_size = 8;
+            fout.write((char*)&byte_size, 1); // число полезных бит
+        }
+        fin.close();
+        fout.close(); // закрываем файлы
+    }
+    else {
+        std::string encrypted_file_link;
+        std::getline(std::cin, encrypted_file_link); // костыль для отбрасывания лишнего энтера, cin его не видит, а getline видит)
+        std::cout << "Пожалуйста введите путь до файла: ";
+        std::getline(std::cin, encrypted_file_link);
+        std::ifstream fin(encrypted_file_link, std::ios_base::binary); // открываем файл с зашифрованным текстом на чтение
         int size_dcode;
         fin.read((char*)&size_dcode, sizeof(int));
         std::vector<Bool_vector> dcode(size_dcode);
@@ -193,9 +198,9 @@ int main()
             decrypting_table[j] = dsigns[i]; 
         }
 
-        std::string decrypted_file_link = file_link; // создаем путь к файлу с расшифрованным текстом
-        decrypted_file_link.insert((int)decrypted_file_link.size() - 4, "_decrypted");
-        fout.open(decrypted_file_link); // открываем файл с расшифрованным текстом на запись  
+        std::string decrypted_file_link = encrypted_file_link; // создаем путь к файлу с расшифрованным текстом
+        decrypted_file_link.replace((int)decrypted_file_link.size() - 14, (int)decrypted_file_link.size(), "_decrypted.txt");
+        std::ofstream fout(decrypted_file_link); // открываем файл с расшифрованным текстом на запись  
         Bool_vector buf = { 0,0 };
         shift = 0;
         char c_1, c_2, c_3;
@@ -232,7 +237,11 @@ int main()
 
         std::cout << "\nЕсли вы хотите сравнить расшифрованный файл с исхдным введите 1 иначе 0: ";
         std::cin >> flag;
-        if (flag) check_fequal(file_link, decrypted_file_link);
+        if (flag) { 
+            std::string file_link = encrypted_file_link; // создаем путь к файлу с исходным текстом
+            file_link.replace((int)file_link.size() - 14, (int)file_link.size(), ".txt");
+            check_fequal(file_link, decrypted_file_link); 
+        }
     }
     return 0;
 }
